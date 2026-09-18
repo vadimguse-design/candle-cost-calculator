@@ -23,7 +23,7 @@
         <a href="#calculator">Калькулятор</a>
         <a href="#templates">Шаблоны</a>
         <a href="#recipes">Рецепты</a>
-        <a href="#planner">План выпуска</a>
+        <a href="#planner">Партия</a>
         <a href="#settings">Настройки</a>
       </nav>
       <div class="header-actions">
@@ -82,20 +82,27 @@
 
           <article class="calc-card featured-card">
             <div class="card-heading"><div><span class="section-number">01</span><h3>Основные параметры</h3></div><span class="card-note">основа рецепта</span></div>
-            <div class="field-grid three">
+            <div class="field-grid four">
               <label>Тип воска
                 <select data-key="waxType">
-                  <option>Соевый</option><option>Кокосовый</option><option>Пчелиный</option><option>Соево-кокосовый</option><option>Другой</option>
+                  <option>Соевый</option><option>Кокосовый</option><option>Пчелиный</option><option>Соево-кокосовый</option><option>Смесь восков</option><option>Другой</option>
                 </select>
               </label>
-              <label>Цена воска, ₽/кг
-                <input data-key="waxPrice" type="number" min="0" step="1" inputmode="decimal" />
+              <label><span id="wax-price-label">Цена воска, ₽/кг</span>
+                <input id="wax-price-input" data-key="waxPrice" type="number" min="0" step="1" inputmode="decimal" />
               </label>
-              <label>Вес воска, г
+              <label>Режим расчёта веса
+                <select data-key="weightMode"><option value="wax">Задан вес воска</option><option value="total">Задан итоговый вес</option></select>
+              </label>
+              <label id="wax-weight-field">Вес воска, г
                 <input data-key="waxWeight" type="number" min="0" step="1" inputmode="decimal" />
               </label>
+              <label id="total-weight-field" hidden>Итоговый вес смеси, г
+                <input data-key="totalFillWeight" type="number" min="0" step="1" inputmode="decimal" />
+              </label>
             </div>
-            <div class="inline-result"><span>Стоимость воска</span><strong id="wax-cost">0 ₽</strong><small>Цена за кг ÷ 1000 × вес</small></div>
+            <div class="weight-breakdown"><span>Фактическая рецептура</span><strong id="weight-breakdown">180 г воска + 14,4 г отдушки = 194,4 г</strong></div>
+            <div class="inline-result"><span>Стоимость воска</span><strong id="wax-cost">0 ₽</strong><small id="wax-cost-note">Цена за кг ÷ 1000 × вес</small></div>
           </article>
 
           <article class="calc-card">
@@ -112,6 +119,36 @@
               </label>
             </div>
             <div class="inline-result"><span>Стоимость ароматизатора</span><strong id="fragrance-cost">0 ₽</strong><small>Вес воска × нагрузка</small></div>
+          </article>
+
+          <article id="recipe-tools" class="calc-card recipe-tools-card">
+            <div class="card-heading"><div><span class="section-number">✦</span><h3>Расчётные инструменты</h3></div><span class="card-note">открывайте только нужное</span></div>
+            <div class="tool-tabs" role="tablist" aria-label="Расчётные инструменты">
+              <button class="tool-tab active" data-tool-tab="capacity" role="tab" aria-selected="true" type="button">Вместимость ёмкости</button>
+              <button class="tool-tab" data-tool-tab="blend" role="tab" aria-selected="false" type="button">Смесь восков</button>
+            </div>
+            <div class="tool-panel" data-tool-panel="capacity">
+              <p class="tool-intro">Рассчитайте примерный итоговый вес наполнения по водному тесту или размерам ёмкости.</p>
+              <div class="field-grid four">
+                <label>Способ расчёта<select data-key="capacityMode"><option value="water">По водному тесту</option><option value="geometry">По размерам</option></select></label>
+                <label data-capacity-field="water">Вес воды, г<input data-key="capacityWaterWeight" type="number" min="0" step="1" inputmode="decimal" /></label>
+                <label data-capacity-field="geometry" hidden>Внутренний диаметр, мм<input data-key="capacityDiameter" type="number" min="0" step="1" inputmode="decimal" /></label>
+                <label data-capacity-field="geometry" hidden>Высота заливки, мм<input data-key="capacityHeight" type="number" min="0" step="1" inputmode="decimal" /></label>
+                <label>Коэффициент плотности<input data-key="waxDensity" type="number" min="0.5" max="1.2" step="0.01" inputmode="decimal" /></label>
+              </div>
+              <div class="tool-result"><div><span>Примерный объём</span><strong id="capacity-volume">0 мл</strong></div><div><span>Итоговый вес смеси</span><strong id="capacity-fill-weight">0 г</strong></div><button id="apply-capacity" class="button button-primary" type="button">Использовать этот вес</button></div>
+              <p class="tool-footnote">Коэффициент зависит от состава воска. Для точного результата проверьте вес пробной заливкой.</p>
+            </div>
+            <div class="tool-panel" data-tool-panel="blend" hidden>
+              <div class="blend-toolbar"><label class="check-row"><input id="blend-enabled" type="checkbox" /> Использовать смесь в расчёте себестоимости</label><span id="blend-status">Сумма долей должна быть 100%</span></div>
+              <div class="blend-table" aria-label="Компоненты смеси восков">
+                <div class="blend-row blend-head"><span>Воск</span><span>Доля, %</span><span>Цена, ₽/кг</span><span>На свечу</span></div>
+                <div class="blend-row"><input data-key="blend1Type" type="text" maxlength="40" aria-label="Первый воск" /><input data-key="blend1Percent" type="number" min="0" max="100" step="1" aria-label="Доля первого воска" /><input data-key="blend1Price" type="number" min="0" step="1" aria-label="Цена первого воска" /><output id="blend1-weight">0 г</output></div>
+                <div class="blend-row"><input data-key="blend2Type" type="text" maxlength="40" aria-label="Второй воск" /><input data-key="blend2Percent" type="number" min="0" max="100" step="1" aria-label="Доля второго воска" /><input data-key="blend2Price" type="number" min="0" step="1" aria-label="Цена второго воска" /><output id="blend2-weight">0 г</output></div>
+                <div class="blend-row"><input data-key="blend3Type" type="text" maxlength="40" aria-label="Третий воск" /><input data-key="blend3Percent" type="number" min="0" max="100" step="1" aria-label="Доля третьего воска" /><input data-key="blend3Price" type="number" min="0" step="1" aria-label="Цена третьего воска" /><output id="blend3-weight">0 г</output></div>
+              </div>
+              <div class="tool-result blend-result"><div><span>Всего долей</span><strong id="blend-total">0%</strong></div><div><span>Средняя цена смеси</span><strong id="blend-average-price">0 ₽/кг</strong></div></div>
+            </div>
           </article>
 
           <div class="mini-card-grid">
@@ -135,6 +172,9 @@
             <p class="wick-advisor-safety">Это стартовая гипотеза, а не сертификат безопасности. Проверяйте каждый вариант прожигом в своей ёмкости и следуйте рекомендациям производителя фитиля.</p>
           </article>
 
+          <details class="advanced-costs">
+            <summary><div><span class="section-number">+</span><span><strong>Дополнительные расходы и производство</strong><small>Декор, упаковка, труд и потери</small></span></div><span class="details-action">Открыть</span></summary>
+            <div class="advanced-costs-content">
           <article class="calc-card">
             <div class="card-heading"><div><span class="section-number">05</span><h3>Декор и расходные материалы</h3></div><span class="card-note">₽ на свечу</span></div>
             <div class="field-grid five">
@@ -173,6 +213,8 @@
             <div class="card-heading"><div><span class="section-number">08</span><h3>Брак и технологические потери</h3></div></div>
             <div class="loss-content"><label>Процент потерь / брака<input data-key="lossPercent" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label><p>Применяется ко всем материалам и упаковке. Это помогает заложить реальную стоимость каждой удачной свечи.</p><div class="inline-result"><span>Потери и брак</span><strong id="loss-cost">0 ₽</strong></div></div>
           </article>
+            </div>
+          </details>
         </div>
 
         <aside class="summary-column">
@@ -253,7 +295,7 @@
       </section>
 
       <section id="planner" class="planner-section">
-        <div class="section-heading"><p class="eyebrow">ПЛАНИРОВАНИЕ</p><h2>Планировщик выпуска</h2><p class="section-copy">Укажите остатки только тех материалов, которые хотите контролировать. Пустые поля не ограничивают выпуск.</p></div>
+        <div class="section-heading"><p class="eyebrow">МАСШТАБИРОВАНИЕ</p><h2>Расчёт партии</h2><p class="section-copy">Выберите рецепт и количество — калькулятор подготовит точную сводку материалов. Остатки можно открыть при необходимости.</p></div>
         <div class="planner-layout">
           <article class="calc-card planner-controls">
             <div class="card-heading"><div><h3>Партия свечей</h3></div><span class="card-note">расчёт в реальном времени</span></div>
@@ -261,10 +303,21 @@
               <label>Рецепт для производства<select id="planner-recipe" aria-label="Рецепт для производства"></select></label>
               <label>Запланировано свечей<input id="planner-quantity" type="number" min="1" step="1" inputmode="numeric" value="10" /></label>
             </div>
+            <div class="batch-materials">
+              <div><span>Готовой смеси</span><strong id="batch-fill">0 г</strong></div>
+              <div><span>Воска к подготовке</span><strong id="batch-wax">0 г</strong></div>
+              <div><span>Отдушки к подготовке</span><strong id="batch-fragrance">0 г</strong></div>
+              <div><span>Фитилей</span><strong id="batch-wicks">0 шт.</strong></div>
+              <div><span>Ёмкостей</span><strong id="batch-jars">0 шт.</strong></div>
+              <div class="batch-blend"><span>Состав восковой смеси</span><strong id="batch-blend">Один вид воска</strong></div>
+            </div>
+            <p id="batch-reserve-note" class="tool-footnote">Количество воска и отдушки учитывает технологический запас.</p>
             <div class="planner-kpis"><div><span>Себестоимость партии</span><strong id="planner-cost">0 ₽</strong></div><div><span>Выручка</span><strong id="planner-revenue">0 ₽</strong></div><div><span>Ожидаемая прибыль</span><strong id="planner-profit">0 ₽</strong></div></div>
           </article>
-          <article class="calc-card inventory-card">
-            <div class="card-heading"><div><h3>Остатки материалов</h3></div><button id="save-inventory" class="text-button" type="button">Сохранить остатки</button></div>
+          <details class="calc-card inventory-card">
+            <summary><div><h3>Остатки материалов</h3><span>Необязательная проверка доступного выпуска</span></div><span class="details-action">Открыть</span></summary>
+            <div class="inventory-content">
+              <div class="inventory-actions"><p>Пустые поля не ограничивают выпуск.</p><button id="save-inventory" class="text-button" type="button">Сохранить остатки</button></div>
             <div class="field-grid three">
               <label>Воск, г<input data-stock="wax" type="number" min="0" step="1" inputmode="decimal" placeholder="Не учитывать" /></label>
               <label>Ароматизатор, г<input data-stock="fragrance" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Не учитывать" /></label>
@@ -273,12 +326,13 @@
               <label>Крышки, шт.<input data-stock="lid" type="number" min="0" step="1" inputmode="numeric" placeholder="Не учитывать" /></label>
               <label>Коробки, шт.<input data-stock="box" type="number" min="0" step="1" inputmode="numeric" placeholder="Не учитывать" /></label>
             </div>
-          </article>
+            </div>
+          </details>
         </div>
-        <article class="planner-results">
-          <div class="planner-result-heading"><div><span>Можно изготовить сейчас</span><strong id="planner-maximum">—</strong></div><p id="planner-note">Укажите остатки материалов, чтобы рассчитать доступный выпуск.</p></div>
+        <details class="planner-results">
+          <summary class="planner-result-heading"><div><span>Можно изготовить сейчас</span><strong id="planner-maximum">—</strong></div><p id="planner-note">Укажите остатки материалов, чтобы рассчитать доступный выпуск.</p><span class="details-action">Таблица</span></summary>
           <div class="table-wrap"><table><thead><tr><th>Материал</th><th>Остаток</th><th>На свечу</th><th>На план</th><th>Статус</th></tr></thead><tbody id="planner-table"></tbody></table></div>
-        </article>
+        </details>
       </section>
 
       <section id="settings" class="settings-section">
