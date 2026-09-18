@@ -117,7 +117,7 @@
           <div class="mini-card-grid">
             <article class="calc-card compact-card">
               <div class="card-heading"><div><span class="section-number">03</span><h3>Фитиль</h3></div></div>
-              <div class="field-grid two"><label>Цена одного, ₽<input data-key="wickPrice" type="number" min="0" step="0.1" inputmode="decimal" /></label><label>Количество<input data-key="wickQty" type="number" min="0" step="1" inputmode="numeric" /></label></div>
+              <div class="field-grid three"><label>Цена одного, ₽<input data-key="wickPrice" type="number" min="0" step="0.1" inputmode="decimal" /></label><label>Количество<input data-key="wickQty" type="number" min="0" step="1" inputmode="numeric" /></label><label>Внутренний диаметр, мм<input data-key="containerDiameter" type="number" min="20" max="200" step="1" inputmode="decimal" /></label></div>
               <div class="inline-result"><span>Стоимость фитилей</span><strong id="wick-cost">0 ₽</strong></div>
             </article>
             <article class="calc-card compact-card">
@@ -126,6 +126,14 @@
               <div class="inline-result"><span>Стоимость ёмкости</span><strong id="container-cost">0 ₽</strong></div>
             </article>
           </div>
+
+          <article class="calc-card wick-advisor-card">
+            <div class="card-heading"><div><span class="section-number">03A</span><h3>Умный подбор фитиля</h3></div><span class="card-note">ориентир для тестового прожига</span></div>
+            <div class="field-grid two"><label>Серия фитилей<select data-key="wickSeries"><option value="eco">ECO</option><option value="generic">Другая / без серии</option></select></label><div class="wick-advisor-context"><span>Учитывается</span><strong id="wick-advisor-context">диаметр, воск и отдушка</strong></div></div>
+            <div class="wick-advice-grid"><div><span>Начать тест с</span><strong id="wick-advisor-main">—</strong></div><div><span>Соседние пробы</span><strong id="wick-advisor-range">—</strong></div><div><span>Схема установки</span><strong id="wick-advisor-layout">—</strong></div></div>
+            <p id="wick-advisor-note" class="wick-advisor-note">Введите диаметр свечи, чтобы получить рекомендацию.</p>
+            <p class="wick-advisor-safety">Это стартовая гипотеза, а не сертификат безопасности. Проверяйте каждый вариант прожигом в своей ёмкости и следуйте рекомендациям производителя фитиля.</p>
+          </article>
 
           <article class="calc-card">
             <div class="card-heading"><div><span class="section-number">05</span><h3>Декор и расходные материалы</h3></div><span class="card-note">₽ на свечу</span></div>
