@@ -4,6 +4,8 @@ const STORAGE_KEYS = {
   recipes: "candle-cost-recipes-v1",
   settings: "candle-cost-settings-v1",
   draft: "candle-cost-draft-v1",
+  templates: "candle-cost-templates-v1",
+  inventory: "candle-cost-inventory-v1",
 };
 
 const DEFAULT_SETTINGS = {
@@ -58,6 +60,19 @@ const PERCENT_LIMITS = {
   acquiringFee: 100, taxPercent: 100, targetMargin: 99.9, markupPercent: 1000,
 };
 const SCENARIO_PRICES = [699, 799, 899, 999, 1199, 1499];
+const BUILT_IN_TEMPLATES = [
+  { id: "soy-glass-180", name: "Соевый стакан 180 г", description: "Классическая ароматическая свеча в банке.", data: { waxType: "Соевый", waxWeight: 180, fragranceLoad: 8, wickQty: 1, productionMinutes: 35 } },
+  { id: "coconut-jar-250", name: "Кокосовая свеча 250 г", description: "Большой формат в банке с мягким горением.", data: { waxType: "Кокосовый", waxWeight: 250, fragranceLoad: 8, wickQty: 1, productionMinutes: 45 } },
+  { id: "beeswax-mold-100", name: "Пчелиная формовая 100 г", description: "Небольшая формовая свеча без ароматизатора.", data: { waxType: "Пчелиный", waxWeight: 100, fragranceLoad: 0, wickQty: 1, jarCost: 0, lidCost: 0, boxCost: 0, productionMinutes: 25 } },
+];
+const INVENTORY_ITEMS = [
+  { key: "wax", label: "Воск", unit: "г", usage: (recipe) => number(recipe.waxWeight) },
+  { key: "fragrance", label: "Ароматизатор", unit: "г", usage: (recipe) => number(recipe.waxWeight) * number(recipe.fragranceLoad) / 100 },
+  { key: "wick", label: "Фитили", unit: "шт.", usage: (recipe) => number(recipe.wickQty) },
+  { key: "jar", label: "Банки", unit: "шт.", usage: () => 1 },
+  { key: "lid", label: "Крышки", unit: "шт.", usage: () => 1 },
+  { key: "box", label: "Коробки", unit: "шт.", usage: () => 1 },
+];
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -85,6 +100,9 @@ let state = {
   settings: getDefaults(),
   comparison: [],
   whatIfDirty: false,
+  templates: [...BUILT_IN_TEMPLATES, ...readJSON(STORAGE_KEYS.templates, [])],
+  inventory: { wax: "", fragrance: "", wick: "", jar: "", lid: "", box: "", ...readJSON(STORAGE_KEYS.inventory, {}) },
+  planner: { source: "draft", quantity: 10 },
 };
 
 function calculate(recipe, forcedPrice) {
@@ -159,6 +177,7 @@ function render() {
   setText("bridge-price", money(c.sellingPrice)); setText("bridge-cost", money(c.cost)); setText("bridge-fees", money(c.fees)); setText("bridge-logistics", money(c.logisticsAndAds)); setText("bridge-tax", money(c.tax + c.saleOther)); setText("bridge-profit", money(c.profit));
   renderScenarios(); renderWhatIf();
   if (!state.whatIfDirty) syncWhatIf();
+  renderPlanner();
   persistDraft();
 }
 
@@ -211,6 +230,109 @@ function updateRecipeField(input) {
   if (result.message) { input.value = result.value; showValidation(result.message); }
 }
 
+function formatQuantity(value) {
+  return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(value || 0);
+}
+function getPlannerRecipe() {
+  if (state.planner.source === "draft") return state.recipe;
+  return state.recipes.find((recipe) => recipe.id === state.planner.source)?.data || state.recipe;
+}
+function persistTemplates() {
+  writeJSON(STORAGE_KEYS.templates, state.templates.filter((template) => template.custom));
+}
+function persistInventory() { writeJSON(STORAGE_KEYS.inventory, state.inventory); }
+function renderTemplates() {
+  const list = $("#templates-list");
+  if (!list) return;
+  list.innerHTML = state.templates.map((template) => {
+    const kind = template.custom ? "МОЙ ШАБЛОН" : "ГОТОВАЯ ОСНОВА";
+    const remove = template.custom ? `<button class="text-button" data-template-action="delete" data-id="${template.id}" type="button">Удалить</button>` : "";
+    return `<article class="template-card"><p class="eyebrow">${kind}</p><h3>${escapeHTML(template.name)}</h3><p>${escapeHTML(template.description)}</p><div class="template-actions"><button class="small-button" data-template-action="apply" data-id="${template.id}" type="button">Выбрать шаблон</button>${remove}</div></article>`;
+  }).join("");
+}
+function saveTemplate() {
+  const name = window.prompt("Название нового шаблона", state.recipe.name || "Мой шаблон");
+  if (name === null) return;
+  const normalizedName = name.trim();
+  if (!normalizedName) { showValidation("Укажите название шаблона."); return; }
+  state.templates.push({
+    id: crypto.randomUUID(),
+    name: normalizedName,
+    description: "Сохранённый вами шаблон рецептуры.",
+    data: JSON.parse(JSON.stringify(state.recipe)),
+    custom: true,
+  });
+  persistTemplates(); renderTemplates(); toast("Шаблон сохранён на этом устройстве");
+}
+function applyTemplate(id) {
+  const template = state.templates.find((item) => item.id === id);
+  if (!template) return;
+  state.recipe = template.custom
+    ? { ...createRecipe(), ...JSON.parse(JSON.stringify(template.data)) }
+    : { ...state.recipe, ...template.data, name: template.name };
+  state.activeRecipeId = null;
+  state.whatIfDirty = false;
+  populateForm(); render(); updateEditingIndicator();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  toast(`Шаблон «${template.name}» применён`);
+}
+function deleteTemplate(id) {
+  const template = state.templates.find((item) => item.id === id && item.custom);
+  if (!template) return;
+  if (!window.confirm(`Удалить шаблон «${template.name}»?`)) return;
+  state.templates = state.templates.filter((item) => item.id !== id);
+  persistTemplates(); renderTemplates(); toast("Шаблон удалён");
+}
+function renderPlanner() {
+  const select = $("#planner-recipe");
+  if (!select) return;
+  const currentSource = state.planner.source;
+  const recipeOptions = state.recipes.map((recipe) => `<option value="${recipe.id}">${escapeHTML(recipe.data.name || "Свеча без названия")}</option>`).join("");
+  select.innerHTML = `<option value="draft">Текущий расчёт — ${escapeHTML(state.recipe.name || "без названия")}</option>${recipeOptions}`;
+  if (["draft", ...state.recipes.map((recipe) => recipe.id)].includes(currentSource)) select.value = currentSource;
+  else state.planner.source = select.value;
+
+  const quantity = Math.max(1, Math.floor(number(state.planner.quantity) || 1));
+  state.planner.quantity = quantity;
+  $("#planner-quantity").value = quantity;
+  $$('[data-stock]').forEach((input) => { input.value = state.inventory[input.dataset.stock] ?? ""; });
+
+  const recipe = getPlannerRecipe();
+  const calc = calculate(recipe);
+  setText("planner-cost", money(calc.cost * quantity));
+  setText("planner-revenue", money(calc.sellingPrice * quantity));
+  setText("planner-profit", money(calc.profit * quantity));
+
+  const items = INVENTORY_ITEMS.map((item) => {
+    const stored = state.inventory[item.key];
+    const tracked = stored !== "" && stored !== null && stored !== undefined;
+    const stock = tracked ? number(stored) : 0;
+    const perUnit = item.usage(recipe);
+    const required = perUnit * quantity;
+    const shortage = Math.max(0, required - stock);
+    const maximum = tracked && perUnit > 0 ? Math.floor(stock / perUnit) : null;
+    return { ...item, tracked, stock, perUnit, required, shortage, maximum };
+  });
+  const constraints = items.filter((item) => item.tracked && item.perUnit > 0);
+  const maximum = constraints.length ? Math.min(...constraints.map((item) => item.maximum)) : null;
+  const limiters = maximum === null ? [] : constraints.filter((item) => item.maximum === maximum);
+  setText("planner-maximum", maximum === null ? "—" : `${maximum} ${declension(maximum, "свеча", "свечи", "свечей")}`);
+  if (maximum === null) setText("planner-note", "Укажите остатки материалов, чтобы рассчитать доступный выпуск.");
+  else if (quantity <= maximum) setText("planner-note", `Остатков достаточно для партии из ${quantity} ${declension(quantity, "свечи", "свечей", "свечей")}.`);
+  else setText("planner-note", `План превышает остатки: ограничение — ${limiters.map((item) => item.label.toLowerCase()).join(", ")}.`);
+
+  $("#planner-table").innerHTML = items.map((item) => {
+    const stock = item.tracked ? `${formatQuantity(item.stock)} ${item.unit}` : "Не учитывать";
+    const perUnit = item.perUnit > 0 ? `${formatQuantity(item.perUnit)} ${item.unit}` : "Не используется";
+    const required = item.perUnit > 0 ? `${formatQuantity(item.required)} ${item.unit}` : "—";
+    let status = "Не контролируется", statusClass = "status-muted";
+    if (item.tracked && item.perUnit === 0) status = "Не используется";
+    else if (item.tracked && item.shortage > 0) { status = `Не хватает ${formatQuantity(item.shortage)} ${item.unit}`; statusClass = "status-short"; }
+    else if (item.tracked) { status = "Достаточно"; statusClass = "status-ok"; }
+    return `<tr><td>${item.label}</td><td>${stock}</td><td>${perUnit}</td><td>${required}</td><td class="${statusClass}">${status}</td></tr>`;
+  }).join("");
+}
+
 function recipesWithCalcs() { return state.recipes.map((recipe) => ({ recipe, calc: calculate(recipe.data) })); }
 function renderRecipes() {
   const list = $("#recipes-list"), empty = $("#recipes-empty"), panel = $("#comparison-panel");
@@ -220,7 +342,7 @@ function renderRecipes() {
     const checked = state.comparison.includes(recipe.id) ? "checked" : "";
     list.insertAdjacentHTML("beforeend", `<article class="recipe-card"><label><input class="compare-check" data-id="${recipe.id}" type="checkbox" ${checked}> сравнить</label><p class="eyebrow">${escapeHTML(recipe.data.waxType || "РЕЦЕПТ")}</p><h3>${escapeHTML(recipe.data.name || "Без названия")}</h3><div class="recipe-stats"><div><span>Себестоимость</span><strong>${money(calc.cost)}</strong></div><div><span>Цена</span><strong>${money(calc.recommendedPrice)}</strong></div><div><span>Прибыль</span><strong>${money(calc.profit)}</strong></div><div><span>Маржа</span><strong>${percent(calc.margin)}</strong></div></div><div class="recipe-actions"><button class="small-button" data-action="edit" data-id="${recipe.id}" type="button">Редактировать</button><button class="small-button" data-action="duplicate" data-id="${recipe.id}" type="button">Дублировать</button><button class="small-button delete" data-action="delete" data-id="${recipe.id}" type="button">Удалить</button></div></article>`);
   });
-  panel.hidden = entries.length === 0; renderComparison();
+  panel.hidden = entries.length === 0; renderComparison(); renderPlanner();
 }
 function renderComparison() {
   const selected = recipesWithCalcs().filter(({ recipe }) => state.comparison.includes(recipe.id));
@@ -285,7 +407,31 @@ function bindEvents() {
   });
   $('#recipes-list').addEventListener("click", (event) => { const button = event.target.closest("button[data-action]"); if (!button) return; const { action, id } = button.dataset; if (action === "edit") editRecipe(id); if (action === "duplicate") duplicateRecipe(id); if (action === "delete") deleteRecipe(id); });
   $('#recipes-list').addEventListener("change", (event) => { const input = event.target.closest(".compare-check"); if (!input) return; state.comparison = input.checked ? [...new Set([...state.comparison, input.dataset.id])] : state.comparison.filter((id) => id !== input.dataset.id); renderComparison(); });
+  $('#templates-list').addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-template-action]"); if (!button) return;
+    if (button.dataset.templateAction === "apply") applyTemplate(button.dataset.id);
+    if (button.dataset.templateAction === "delete") deleteTemplate(button.dataset.id);
+  });
+  $('#save-template').addEventListener("click", saveTemplate);
+  $('#planner-recipe').addEventListener("change", (event) => { state.planner.source = event.target.value; renderPlanner(); });
+  $('#planner-quantity').addEventListener("input", (event) => {
+    const result = validateNumeric("plannerQuantity", event.target.value);
+    state.planner.quantity = Math.max(1, Math.floor(result.value || 1));
+    if (result.message) showValidation(result.message);
+    renderPlanner();
+  });
+  $$('[data-stock]').forEach((input) => input.addEventListener("input", () => {
+    const key = input.dataset.stock;
+    if (input.value === "") state.inventory[key] = "";
+    else {
+      const result = validateNumeric(key, input.value);
+      state.inventory[key] = result.value;
+      if (result.message) { input.value = result.value; showValidation(result.message); }
+    }
+    persistInventory(); renderPlanner();
+  }));
+  $('#save-inventory').addEventListener("click", () => { persistInventory(); toast("Остатки сохранены на этом устройстве"); });
 }
 
-function init() { populateForm(); bindEvents(); render(); renderRecipes(); updateEditingIndicator(); }
+function init() { populateForm(); bindEvents(); renderTemplates(); render(); renderRecipes(); updateEditingIndicator(); }
 init();
