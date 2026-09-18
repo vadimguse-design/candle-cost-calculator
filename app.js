@@ -26,6 +26,8 @@ const BASE_RECIPE = {
   fragranceLoad: 8,
   wickPrice: 0,
   wickQty: 1,
+  containerDiameter: 70,
+  wickSeries: "eco",
   jarCost: 0,
   lidCost: 0,
   hardwareCost: 0,
@@ -175,7 +177,7 @@ function render() {
   setText("metric-cost", money(c.cost)); setText("metric-price", money(c.recommendedPrice)); setText("metric-price-note", state.recipe.pricingMode === "margin" ? "по желаемой марже" : "по наценке");
   setText("metric-profit", money(c.profit)); setText("metric-margin", percent(c.margin)); setText("recommended-price", money(c.recommendedPrice));
   setText("bridge-price", money(c.sellingPrice)); setText("bridge-cost", money(c.cost)); setText("bridge-fees", money(c.fees)); setText("bridge-logistics", money(c.logisticsAndAds)); setText("bridge-tax", money(c.tax + c.saleOther)); setText("bridge-profit", money(c.profit));
-  renderScenarios(); renderWhatIf();
+  renderScenarios(); renderWhatIf(); renderWickAdvice();
   if (!state.whatIfDirty) syncWhatIf();
   renderPlanner();
   persistDraft();
@@ -184,6 +186,39 @@ function render() {
 function renderScenarios() {
   const body = $("#scenarios-table");
   body.innerHTML = SCENARIO_PRICES.map((price) => { const c = calculate(state.recipe, price); return `<tr><td>${money(price)}</td><td class="${c.profit < 0 ? "negative" : ""}">${money(c.profit)}</td><td>${percent(c.margin)}</td></tr>`; }).join("");
+}
+function wickSizeLabel(series, size) { return series === "eco" ? `ECO ${size}` : `уровень ${size}`; }
+function renderWickAdvice() {
+  const diameter = number(state.recipe.containerDiameter);
+  const fragranceLoad = number(state.recipe.fragranceLoad);
+  const waxType = state.recipe.waxType || "воск";
+  const normalizedWaxType = waxType.toLocaleLowerCase("ru-RU");
+  if (diameter < 20) {
+    setText("wick-advisor-context", "укажите диаметр от 20 мм");
+    setText("wick-advisor-main", "—"); setText("wick-advisor-range", "—"); setText("wick-advisor-layout", "—");
+    setText("wick-advisor-note", "Укажите внутренний диаметр ёмкости или свечи, чтобы получить ориентир.");
+    return;
+  }
+  const wickCount = diameter > 120 ? 3 : diameter > 90 ? 2 : 1;
+  const zoneDiameter = diameter / wickCount;
+  let size = Math.round((zoneDiameter - 30) / 5);
+  const factors = [];
+  if (normalizedWaxType.includes("пчели")) { size += 2; factors.push("пчелиный воск"); }
+  if (normalizedWaxType.includes("кокос")) { size -= 1; factors.push("кокосовый воск"); }
+  if (fragranceLoad >= 10) { size += 1; factors.push("высокая отдушка"); }
+  if (fragranceLoad > 0 && fragranceLoad <= 4) { size -= 1; factors.push("лёгкая отдушка"); }
+  size = Math.max(2, Math.min(14, size));
+  const label = wickSizeLabel(state.recipe.wickSeries, size);
+  const lower = wickSizeLabel(state.recipe.wickSeries, Math.max(2, size - 2));
+  const upper = wickSizeLabel(state.recipe.wickSeries, Math.min(16, size + 2));
+  const layout = wickCount === 1 ? "1 фитиль по центру" : wickCount === 2 ? "2 фитиля симметрично" : "3 фитиля равномерно";
+  setText("wick-advisor-context", `${formatQuantity(diameter)} мм · ${waxType} · ${formatQuantity(fragranceLoad)}% отдушки`);
+  setText("wick-advisor-main", `${wickCount} × ${label}`);
+  setText("wick-advisor-range", `${lower} и ${upper}`);
+  setText("wick-advisor-layout", layout);
+  const factorNote = factors.length ? ` Учтено: ${factors.join(", ")}.` : "";
+  const widthNote = wickCount > 1 ? ` Диаметр ${formatQuantity(diameter)} мм лучше тестировать в схеме из ${wickCount} фитилей.` : "";
+  setText("wick-advisor-note", `Начните с ${label} и сравните его с двумя соседними вариантами.${factorNote}${widthNote}`);
 }
 function syncWhatIf() {
   const c = currentCalc();
