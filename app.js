@@ -27,7 +27,7 @@ const BASE_RECIPE = {
   fragrancePrice: 0,
   fragranceLoad: 8,
   capacityMode: "water",
-  capacityWaterWeight: 220,
+  capacityWaterLiters: 0.22,
   capacityDiameter: 70,
   capacityHeight: 70,
   waxDensity: 0.86,
@@ -156,7 +156,7 @@ function getCapacityCalculation(recipe) {
   const r = { ...BASE_RECIPE, ...recipe };
   const volume = r.capacityMode === "geometry"
     ? Math.PI * Math.pow(number(r.capacityDiameter) / 20, 2) * (number(r.capacityHeight) / 10)
-    : number(r.capacityWaterWeight);
+    : number(r.capacityWaterLiters) * 1000;
   return { volume, fillWeight: volume * number(r.waxDensity) };
 }
 
@@ -211,7 +211,7 @@ function renderCapacity() {
   const calculation = getCapacityCalculation(state.recipe);
   $$('[data-capacity-field="water"]').forEach((field) => { field.hidden = state.recipe.capacityMode !== "water"; });
   $$('[data-capacity-field="geometry"]').forEach((field) => { field.hidden = state.recipe.capacityMode !== "geometry"; });
-  setText("capacity-volume", `${formatQuantity(calculation.volume)} мл`);
+  setText("capacity-volume", `${formatLiters(calculation.volume / 1000)} л`);
   setText("capacity-fill-weight", `${formatQuantity(calculation.fillWeight)} г`);
 }
 function renderBlend() {
@@ -380,6 +380,9 @@ function updateRecipeField(input) {
 
 function formatQuantity(value) {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(value || 0);
+}
+function formatLiters(value) {
+  return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 3 }).format(value || 0);
 }
 function getPlannerRecipe() {
   if (state.planner.source === "draft") return state.recipe;
