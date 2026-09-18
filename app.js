@@ -22,8 +22,25 @@ const BASE_RECIPE = {
   waxType: "Соевый",
   waxPrice: 0,
   waxWeight: 180,
+  weightMode: "wax",
+  totalFillWeight: 194.4,
   fragrancePrice: 0,
   fragranceLoad: 8,
+  capacityMode: "water",
+  capacityWaterWeight: 220,
+  capacityDiameter: 70,
+  capacityHeight: 70,
+  waxDensity: 0.86,
+  blendEnabled: false,
+  blend1Type: "Соевый",
+  blend1Percent: 70,
+  blend1Price: 0,
+  blend2Type: "Кокосовый",
+  blend2Percent: 30,
+  blend2Price: 0,
+  blend3Type: "Пчелиный",
+  blend3Percent: 0,
+  blend3Price: 0,
   wickPrice: 0,
   wickQty: 1,
   containerDiameter: 70,
@@ -60,16 +77,17 @@ const BASE_RECIPE = {
 const PERCENT_LIMITS = {
   fragranceLoad: 100, lossPercent: 100, marketplaceFee: 100,
   acquiringFee: 100, taxPercent: 100, targetMargin: 99.9, markupPercent: 1000,
+  blend1Percent: 100, blend2Percent: 100, blend3Percent: 100,
 };
 const SCENARIO_PRICES = [699, 799, 899, 999, 1199, 1499];
 const BUILT_IN_TEMPLATES = [
-  { id: "soy-glass-180", name: "Соевый стакан 180 г", description: "Классическая ароматическая свеча в банке.", data: { waxType: "Соевый", waxWeight: 180, fragranceLoad: 8, wickQty: 1, productionMinutes: 35 } },
-  { id: "coconut-jar-250", name: "Кокосовая свеча 250 г", description: "Большой формат в банке с мягким горением.", data: { waxType: "Кокосовый", waxWeight: 250, fragranceLoad: 8, wickQty: 1, productionMinutes: 45 } },
-  { id: "beeswax-mold-100", name: "Пчелиная формовая 100 г", description: "Небольшая формовая свеча без ароматизатора.", data: { waxType: "Пчелиный", waxWeight: 100, fragranceLoad: 0, wickQty: 1, jarCost: 0, lidCost: 0, boxCost: 0, productionMinutes: 25 } },
+  { id: "soy-glass-180", name: "Соевый стакан 180 г", description: "Классическая ароматическая свеча в банке.", data: { waxType: "Соевый", weightMode: "wax", blendEnabled: false, waxWeight: 180, fragranceLoad: 8, wickQty: 1, productionMinutes: 35 } },
+  { id: "coconut-jar-250", name: "Кокосовая свеча 250 г", description: "Большой формат в банке с мягким горением.", data: { waxType: "Кокосовый", weightMode: "wax", blendEnabled: false, waxWeight: 250, fragranceLoad: 8, wickQty: 1, productionMinutes: 45 } },
+  { id: "beeswax-mold-100", name: "Пчелиная формовая 100 г", description: "Небольшая формовая свеча без ароматизатора.", data: { waxType: "Пчелиный", weightMode: "wax", blendEnabled: false, waxWeight: 100, fragranceLoad: 0, wickQty: 1, jarCost: 0, lidCost: 0, boxCost: 0, productionMinutes: 25 } },
 ];
 const INVENTORY_ITEMS = [
-  { key: "wax", label: "Воск", unit: "г", usage: (recipe) => number(recipe.waxWeight) },
-  { key: "fragrance", label: "Ароматизатор", unit: "г", usage: (recipe) => number(recipe.waxWeight) * number(recipe.fragranceLoad) / 100 },
+  { key: "wax", label: "Воск", unit: "г", usage: (recipe) => getRecipeWeights(recipe).waxWeight * getReserveMultiplier(recipe) },
+  { key: "fragrance", label: "Ароматизатор", unit: "г", usage: (recipe) => getRecipeWeights(recipe).fragranceWeight * getReserveMultiplier(recipe) },
   { key: "wick", label: "Фитили", unit: "шт.", usage: (recipe) => number(recipe.wickQty) },
   { key: "jar", label: "Банки", unit: "шт.", usage: () => 1 },
   { key: "lid", label: "Крышки", unit: "шт.", usage: () => 1 },
@@ -107,10 +125,47 @@ let state = {
   planner: { source: "draft", quantity: 10 },
 };
 
+function getRecipeWeights(recipe) {
+  const r = { ...BASE_RECIPE, ...recipe };
+  const load = number(r.fragranceLoad) / 100;
+  const waxWeight = r.weightMode === "total"
+    ? number(r.totalFillWeight) / (1 + load)
+    : number(r.waxWeight);
+  const fragranceWeight = waxWeight * load;
+  return { waxWeight, fragranceWeight, totalFillWeight: waxWeight + fragranceWeight };
+}
+function getReserveMultiplier(recipe) { return 1 + number(({ ...BASE_RECIPE, ...recipe }).lossPercent) / 100; }
+function getBlendData(recipe) {
+  const r = { ...BASE_RECIPE, ...recipe };
+  const waxWeight = getRecipeWeights(r).waxWeight;
+  const components = [1, 2, 3].map((index) => ({
+    type: String(r[`blend${index}Type`] || `Компонент ${index}`).trim() || `Компонент ${index}`,
+    share: number(r[`blend${index}Percent`]),
+    price: number(r[`blend${index}Price`]),
+  }));
+  const total = components.reduce((sum, component) => sum + component.share, 0);
+  const valid = Math.abs(total - 100) < 0.01;
+  const averagePrice = valid ? components.reduce((sum, component) => sum + component.price * component.share / 100, 0) : 0;
+  return { enabled: Boolean(r.blendEnabled), components, total, valid, averagePrice, waxWeight };
+}
+function getEffectiveWaxPrice(recipe) {
+  const blend = getBlendData(recipe);
+  return blend.enabled && blend.valid ? blend.averagePrice : number(recipe.waxPrice);
+}
+function getCapacityCalculation(recipe) {
+  const r = { ...BASE_RECIPE, ...recipe };
+  const volume = r.capacityMode === "geometry"
+    ? Math.PI * Math.pow(number(r.capacityDiameter) / 20, 2) * (number(r.capacityHeight) / 10)
+    : number(r.capacityWaterWeight);
+  return { volume, fillWeight: volume * number(r.waxDensity) };
+}
+
 function calculate(recipe, forcedPrice) {
   const r = { ...BASE_RECIPE, ...recipe };
-  const wax = number(r.waxPrice) / 1000 * number(r.waxWeight);
-  const fragranceWeight = number(r.waxWeight) * number(r.fragranceLoad) / 100;
+  const weights = getRecipeWeights(r);
+  const waxUnitPrice = getEffectiveWaxPrice(r);
+  const wax = waxUnitPrice / 1000 * weights.waxWeight;
+  const fragranceWeight = weights.fragranceWeight;
   const fragrance = number(r.fragrancePrice) / 1000 * fragranceWeight;
   const wick = number(r.wickPrice) * number(r.wickQty);
   const jar = number(r.jarCost);
@@ -139,11 +194,42 @@ function calculate(recipe, forcedPrice) {
   const fees = marketplaceFee + acquiringFee;
   const profit = sellingPrice - cost - fees - tax - logisticsAndAds - saleOther;
   const margin = sellingPrice > 0 ? profit / sellingPrice * 100 : 0;
-  return { wax, fragranceWeight, fragrance, wick, jar, lid, hardware, container, dyeAndDecor, label, miscMaterials, decor, otherMaterials, packaging, materials, loss, labor, cost, recommendedPrice, sellingPrice, marketplaceFee, acquiringFee, tax, logisticsAndAds, saleOther, fees, profit, margin };
+  return { wax, waxWeight: weights.waxWeight, totalFillWeight: weights.totalFillWeight, waxUnitPrice, fragranceWeight, fragrance, wick, jar, lid, hardware, container, dyeAndDecor, label, miscMaterials, decor, otherMaterials, packaging, materials, loss, labor, cost, recommendedPrice, sellingPrice, marketplaceFee, acquiringFee, tax, logisticsAndAds, saleOther, fees, profit, margin };
 }
 
 function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
 function currentCalc() { return calculate(state.recipe); }
+function renderWeightMode(calc) {
+  const totalMode = state.recipe.weightMode === "total";
+  $("#wax-weight-field").hidden = totalMode;
+  $("#total-weight-field").hidden = !totalMode;
+  $('[data-key="waxWeight"]').value = state.recipe.waxWeight;
+  $('[data-key="totalFillWeight"]').value = state.recipe.totalFillWeight;
+  setText("weight-breakdown", `${formatQuantity(calc.waxWeight)} г воска + ${formatQuantity(calc.fragranceWeight)} г отдушки = ${formatQuantity(calc.totalFillWeight)} г`);
+}
+function renderCapacity() {
+  const calculation = getCapacityCalculation(state.recipe);
+  $$('[data-capacity-field="water"]').forEach((field) => { field.hidden = state.recipe.capacityMode !== "water"; });
+  $$('[data-capacity-field="geometry"]').forEach((field) => { field.hidden = state.recipe.capacityMode !== "geometry"; });
+  setText("capacity-volume", `${formatQuantity(calculation.volume)} мл`);
+  setText("capacity-fill-weight", `${formatQuantity(calculation.fillWeight)} г`);
+}
+function renderBlend() {
+  const blend = getBlendData(state.recipe);
+  $("#blend-enabled").checked = blend.enabled;
+  blend.components.forEach((component, index) => setText(`blend${index + 1}-weight`, `${formatQuantity(blend.waxWeight * component.share / 100)} г`));
+  setText("blend-total", `${formatQuantity(blend.total)}%`);
+  setText("blend-average-price", blend.valid ? `${formatQuantity(blend.averagePrice)} ₽/кг` : "—");
+  const status = $("#blend-status");
+  status.textContent = blend.valid ? (blend.enabled ? "Смесь участвует в расчёте" : "Состав готов — включите при необходимости") : `Смесь не применена: сейчас ${formatQuantity(blend.total)}%, нужно 100%`;
+  status.classList.toggle("valid", blend.valid);
+  const priceInput = $("#wax-price-input");
+  const activeBlend = blend.enabled && blend.valid;
+  priceInput.disabled = activeBlend;
+  priceInput.value = activeBlend ? blend.averagePrice : state.recipe.waxPrice;
+  setText("wax-price-label", activeBlend ? "Средняя цена смеси, ₽/кг" : "Цена воска, ₽/кг");
+  setText("wax-cost-note", activeBlend ? "Средняя цена смеси × фактический вес воска" : "Цена за кг ÷ 1000 × вес");
+}
 
 function populateForm() {
   $$('[data-key]').forEach((input) => {
@@ -152,6 +238,7 @@ function populateForm() {
     else input.value = state.recipe[key] ?? "";
   });
   $$('input[name="pricingMode"]').forEach((input) => input.checked = input.value === state.recipe.pricingMode);
+  $('#blend-enabled').checked = Boolean(state.recipe.blendEnabled);
   $('#candleName').value = state.recipe.name || "";
   $$('[data-setting]').forEach((input) => { input.value = state.settings[input.dataset.setting] ?? 0; });
   togglePricingMode();
@@ -160,6 +247,7 @@ function populateForm() {
 
 function render() {
   const c = currentCalc();
+  renderWeightMode(c); renderCapacity(); renderBlend();
   setText("wax-cost", preciseMoney(c.wax));
   setText("fragrance-weight", `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(c.fragranceWeight)} г`);
   setText("fragrance-cost", preciseMoney(c.fragrance));
@@ -191,7 +279,11 @@ function wickSizeLabel(series, size) { return series === "eco" ? `ECO ${size}` :
 function renderWickAdvice() {
   const diameter = number(state.recipe.containerDiameter);
   const fragranceLoad = number(state.recipe.fragranceLoad);
-  const waxType = state.recipe.waxType || "воск";
+  const blend = getBlendData(state.recipe);
+  const activeBlend = blend.enabled && blend.valid;
+  const waxType = activeBlend
+    ? blend.components.filter((component) => component.share > 0).map((component) => `${component.type} ${formatQuantity(component.share)}%`).join(" + ")
+    : state.recipe.waxType || "воск";
   const normalizedWaxType = waxType.toLocaleLowerCase("ru-RU");
   if (diameter < 20) {
     setText("wick-advisor-context", "укажите диаметр от 20 мм");
@@ -203,8 +295,18 @@ function renderWickAdvice() {
   const zoneDiameter = diameter / wickCount;
   let size = Math.round((zoneDiameter - 30) / 5);
   const factors = [];
-  if (normalizedWaxType.includes("пчели")) { size += 2; factors.push("пчелиный воск"); }
-  if (normalizedWaxType.includes("кокос")) { size -= 1; factors.push("кокосовый воск"); }
+  if (activeBlend) {
+    const waxModifier = blend.components.reduce((sum, component) => {
+      const type = component.type.toLocaleLowerCase("ru-RU");
+      const modifier = type.includes("пчели") ? 2 : type.includes("кокос") ? -1 : 0;
+      return sum + modifier * component.share / 100;
+    }, 0);
+    size += Math.round(waxModifier);
+    factors.push("состав восковой смеси");
+  } else {
+    if (normalizedWaxType.includes("пчели")) { size += 2; factors.push("пчелиный воск"); }
+    if (normalizedWaxType.includes("кокос")) { size -= 1; factors.push("кокосовый воск"); }
+  }
   if (fragranceLoad >= 10) { size += 1; factors.push("высокая отдушка"); }
   if (fragranceLoad > 0 && fragranceLoad <= 4) { size -= 1; factors.push("лёгкая отдушка"); }
   size = Math.max(2, Math.min(14, size));
@@ -222,7 +324,7 @@ function renderWickAdvice() {
 }
 function syncWhatIf() {
   const c = currentCalc();
-  const values = { waxPrice: state.recipe.waxPrice, jarCost: state.recipe.jarCost, fragrancePrice: state.recipe.fragrancePrice, fragranceLoad: state.recipe.fragranceLoad, marketplaceFee: state.recipe.marketplaceFee, sellingPrice: c.recommendedPrice };
+  const values = { waxPrice: c.waxUnitPrice, jarCost: state.recipe.jarCost, fragrancePrice: state.recipe.fragrancePrice, fragranceLoad: state.recipe.fragranceLoad, marketplaceFee: state.recipe.marketplaceFee, sellingPrice: c.recommendedPrice };
   $$('[data-whatif]').forEach((input) => { input.value = values[input.dataset.whatif]; });
 }
 function readWhatIfRecipe() {
@@ -230,7 +332,10 @@ function readWhatIfRecipe() {
   let sellingPrice = currentCalc().recommendedPrice;
   $$('[data-whatif]').forEach((input) => {
     if (input.dataset.whatif === "sellingPrice") sellingPrice = number(input.value);
-    else copy[input.dataset.whatif] = number(input.value);
+    else {
+      copy[input.dataset.whatif] = number(input.value);
+      if (input.dataset.whatif === "waxPrice") copy.blendEnabled = false;
+    }
   });
   return { recipe: copy, sellingPrice };
 }
@@ -259,7 +364,15 @@ function validateNumeric(key, raw) {
 function updateRecipeField(input) {
   const key = input.dataset.key;
   if (key === "name") { state.recipe.name = input.value.trimStart(); return; }
+  if (key === "weightMode") {
+    const weights = getRecipeWeights(state.recipe);
+    state.recipe.weightMode = input.value;
+    state.recipe.waxWeight = weights.waxWeight;
+    state.recipe.totalFillWeight = weights.totalFillWeight;
+    return;
+  }
   if (input.tagName === "SELECT") { state.recipe[key] = input.value; return; }
+  if (input.type === "text") { state.recipe[key] = input.value.trimStart(); return; }
   const result = validateNumeric(key, input.value);
   state.recipe[key] = result.value;
   if (result.message) { input.value = result.value; showValidation(result.message); }
@@ -332,8 +445,22 @@ function renderPlanner() {
   $("#planner-quantity").value = quantity;
   $$('[data-stock]').forEach((input) => { input.value = state.inventory[input.dataset.stock] ?? ""; });
 
-  const recipe = getPlannerRecipe();
+  const recipe = { ...BASE_RECIPE, ...getPlannerRecipe() };
   const calc = calculate(recipe);
+  const reserveMultiplier = getReserveMultiplier(recipe);
+  const waxToPrepare = calc.waxWeight * quantity * reserveMultiplier;
+  const fragranceToPrepare = calc.fragranceWeight * quantity * reserveMultiplier;
+  const blend = getBlendData(recipe);
+  const batchBlend = blend.enabled && blend.valid
+    ? blend.components.filter((component) => component.share > 0).map((component) => `${component.type}: ${formatQuantity(waxToPrepare * component.share / 100)} г`).join(" · ")
+    : `${recipe.waxType || "Воск"}: ${formatQuantity(waxToPrepare)} г`;
+  setText("batch-fill", `${formatQuantity(calc.totalFillWeight * quantity)} г`);
+  setText("batch-wax", `${formatQuantity(waxToPrepare)} г`);
+  setText("batch-fragrance", `${formatQuantity(fragranceToPrepare)} г`);
+  setText("batch-wicks", `${formatQuantity(number(recipe.wickQty) * quantity)} шт.`);
+  setText("batch-jars", `${quantity} шт.`);
+  setText("batch-blend", batchBlend);
+  setText("batch-reserve-note", `Воск и отдушка включают технологический запас ${formatQuantity((reserveMultiplier - 1) * 100)}%. Готовый вес партии показан без запаса.`);
   setText("planner-cost", money(calc.cost * quantity));
   setText("planner-revenue", money(calc.sellingPrice * quantity));
   setText("planner-profit", money(calc.profit * quantity));
@@ -414,7 +541,7 @@ function newCalculation() {
 }
 function editRecipe(id) {
   const recipe = state.recipes.find((item) => item.id === id); if (!recipe) return;
-  state.recipe = JSON.parse(JSON.stringify(recipe.data)); state.activeRecipeId = id; state.whatIfDirty = false;
+  state.recipe = { ...createRecipe(), ...JSON.parse(JSON.stringify(recipe.data)) }; state.activeRecipeId = id; state.whatIfDirty = false;
   populateForm(); render(); updateEditingIndicator(); window.scrollTo({ top: 0, behavior: "smooth" }); toast("Рецепт загружен для редактирования");
 }
 function duplicateRecipe(id) {
@@ -427,6 +554,14 @@ function deleteRecipe(id) {
   if (!window.confirm(`Удалить рецепт «${recipe.data.name || "Без названия"}»?`)) return;
   state.recipes = state.recipes.filter((item) => item.id !== id); state.comparison = state.comparison.filter((item) => item !== id); if (state.activeRecipeId === id) state.activeRecipeId = null;
   persistRecipes(); persistDraft(); renderRecipes(); updateEditingIndicator(); toast("Рецепт удалён");
+}
+function activateToolTab(name) {
+  $$('[data-tool-tab]').forEach((button) => {
+    const active = button.dataset.toolTab === name;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  $$('[data-tool-panel]').forEach((panel) => { panel.hidden = panel.dataset.toolPanel !== name; });
 }
 
 function bindEvents() {
@@ -448,6 +583,16 @@ function bindEvents() {
     if (button.dataset.templateAction === "delete") deleteTemplate(button.dataset.id);
   });
   $('#save-template').addEventListener("click", saveTemplate);
+  $$('[data-tool-tab]').forEach((button) => button.addEventListener("click", () => activateToolTab(button.dataset.toolTab)));
+  $('#blend-enabled').addEventListener("change", (event) => { state.recipe.blendEnabled = event.target.checked; render(); });
+  $('#apply-capacity').addEventListener("click", () => {
+    const capacity = getCapacityCalculation(state.recipe);
+    if (capacity.fillWeight <= 0) { showValidation("Сначала укажите параметры ёмкости."); return; }
+    state.recipe.weightMode = "total";
+    state.recipe.totalFillWeight = capacity.fillWeight;
+    if (state.recipe.capacityMode === "geometry" && number(state.recipe.capacityDiameter) > 0) state.recipe.containerDiameter = number(state.recipe.capacityDiameter);
+    populateForm(); render(); toast("Итоговый вес перенесён в рецепт");
+  });
   $('#planner-recipe').addEventListener("change", (event) => { state.planner.source = event.target.value; renderPlanner(); });
   $('#planner-quantity').addEventListener("input", (event) => {
     const result = validateNumeric("plannerQuantity", event.target.value);
