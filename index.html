@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#24362c" />
+    <meta name="description" content="Калькулятор себестоимости и цены свечей от «Пряной гармонии»." />
+    <title>Пряная гармония — калькулятор свечей</title>
+    <link rel="manifest" href="./site.webmanifest" />
+    <link rel="icon" href="./assets/brand-logo.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Пряная гармония — калькулятор свечей">
+        <img class="brand-logo" src="./assets/brand-logo.png" alt="Логотип Пряная гармония" />
+        <span class="brand-copy"><strong>Пряная гармония</strong><small>Калькулятор свечей</small></span>
+      </a>
+      <nav aria-label="Навигация">
+        <a href="#calculator">Калькулятор</a>
+        <a href="#recipes">Рецепты</a>
+        <a href="#settings">Настройки</a>
+      </nav>
+      <div class="header-actions">
+        <button class="button button-quiet" id="new-calculation" type="button">Новый расчёт</button>
+        <button class="button button-primary" id="save-recipe" type="button">Сохранить расчёт</button>
+      </div>
+    </header>
+
+    <main id="top" class="page-shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">МАСТЕРСКАЯ НАТУРАЛЬНЫХ СВЕЧЕЙ</p>
+          <h1>Считайте точно.<br /><em>Продавайте уверенно.</em></h1>
+          <p class="hero-copy">Себестоимость, честная прибыль и рекомендованная цена — в одном спокойном рабочем пространстве.</p>
+        </div>
+        <div class="recipe-name-wrap">
+          <label for="candleName">Название рецепта</label>
+          <input id="candleName" data-key="name" type="text" maxlength="80" placeholder="Например, Кедр и ваниль 180 г" />
+          <span id="editing-indicator" class="editing-indicator" hidden></span>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Главные показатели">
+        <article class="metric-card metric-cost">
+          <span>Себестоимость</span>
+          <strong id="metric-cost">0 ₽</strong>
+          <small>одной свечи</small>
+        </article>
+        <article class="metric-card metric-price">
+          <span>Рекомендуемая цена</span>
+          <strong id="metric-price">0 ₽</strong>
+          <small id="metric-price-note">по наценке</small>
+        </article>
+        <article class="metric-card metric-profit">
+          <span>Прибыль с одной свечи</span>
+          <strong id="metric-profit">0 ₽</strong>
+          <small>после расходов продажи</small>
+        </article>
+        <article class="metric-card metric-margin">
+          <span>Маржинальность</span>
+          <strong id="metric-margin">0%</strong>
+          <small>от цены продажи</small>
+        </article>
+      </section>
+
+      <div id="validation-message" class="validation-message" role="status" hidden></div>
+
+      <section id="calculator" class="calculator-layout">
+        <div class="form-column">
+          <div class="section-heading"><p class="eyebrow">РЕЦЕПТ И ПРОИЗВОДСТВО</p><h2>Параметры свечи</h2></div>
+
+          <article class="calc-card featured-card">
+            <div class="card-heading"><div><span class="section-number">01</span><h3>Основные параметры</h3></div><span class="card-note">основа рецепта</span></div>
+            <div class="field-grid three">
+              <label>Тип воска
+                <select data-key="waxType">
+                  <option>Соевый</option><option>Кокосовый</option><option>Пчелиный</option><option>Соево-кокосовый</option><option>Другой</option>
+                </select>
+              </label>
+              <label>Цена воска, ₽/кг
+                <input data-key="waxPrice" type="number" min="0" step="1" inputmode="decimal" />
+              </label>
+              <label>Вес воска, г
+                <input data-key="waxWeight" type="number" min="0" step="1" inputmode="decimal" />
+              </label>
+            </div>
+            <div class="inline-result"><span>Стоимость воска</span><strong id="wax-cost">0 ₽</strong><small>Цена за кг ÷ 1000 × вес</small></div>
+          </article>
+
+          <article class="calc-card">
+            <div class="card-heading"><div><span class="section-number">02</span><h3>Ароматизатор</h3></div><span class="card-note">необязательно</span></div>
+            <div class="field-grid three">
+              <label>Цена ароматизатора, ₽/кг
+                <input data-key="fragrancePrice" type="number" min="0" step="1" inputmode="decimal" />
+              </label>
+              <label>Ароматическая нагрузка, %
+                <input data-key="fragranceLoad" type="number" min="0" max="100" step="0.1" inputmode="decimal" />
+              </label>
+              <label>Вес ароматизатора, г
+                <output id="fragrance-weight" class="calculated-input">0 г</output>
+              </label>
+            </div>
+            <div class="inline-result"><span>Стоимость ароматизатора</span><strong id="fragrance-cost">0 ₽</strong><small>Вес воска × нагрузка</small></div>
+          </article>
+
+          <div class="mini-card-grid">
+            <article class="calc-card compact-card">
+              <div class="card-heading"><div><span class="section-number">03</span><h3>Фитиль</h3></div></div>
+              <div class="field-grid two"><label>Цена одного, ₽<input data-key="wickPrice" type="number" min="0" step="0.1" inputmode="decimal" /></label><label>Количество<input data-key="wickQty" type="number" min="0" step="1" inputmode="numeric" /></label></div>
+              <div class="inline-result"><span>Стоимость фитилей</span><strong id="wick-cost">0 ₽</strong></div>
+            </article>
+            <article class="calc-card compact-card">
+              <div class="card-heading"><div><span class="section-number">04</span><h3>Ёмкость</h3></div></div>
+              <div class="field-grid three"><label>Банка, ₽<input data-key="jarCost" type="number" min="0" step="0.1" inputmode="decimal" /></label><label>Крышка, ₽<input data-key="lidCost" type="number" min="0" step="0.1" inputmode="decimal" /></label><label>Фурнитура, ₽<input data-key="hardwareCost" type="number" min="0" step="0.1" inputmode="decimal" /></label></div>
+              <div class="inline-result"><span>Стоимость ёмкости</span><strong id="container-cost">0 ₽</strong></div>
+            </article>
+          </div>
+
+          <article class="calc-card">
+            <div class="card-heading"><div><span class="section-number">05</span><h3>Декор и расходные материалы</h3></div><span class="card-note">₽ на свечу</span></div>
+            <div class="field-grid five">
+              <label>Краситель<input data-key="dyeCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Декор<input data-key="decorCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Наклейка / этикетка<input data-key="labelCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Упаковочная мелочь<input data-key="miscMaterialCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Прочие расходы<input data-key="otherMaterialCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            </div>
+          </article>
+
+          <article class="calc-card">
+            <div class="card-heading"><div><span class="section-number">06</span><h3>Упаковка</h3></div><span class="card-note">₽ на свечу</span></div>
+            <div class="field-grid five">
+              <label>Коробка<input data-key="boxCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Наполнитель<input data-key="fillerCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Лента<input data-key="ribbonCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Открытка<input data-key="cardCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Доп. упаковка<input data-key="extraPackagingCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            </div>
+            <div class="inline-result"><span>Стоимость упаковки</span><strong id="packaging-cost">0 ₽</strong></div>
+          </article>
+
+          <article class="calc-card">
+            <div class="card-heading"><div><span class="section-number">07</span><h3>Производство</h3></div><span class="card-note">ваше время важно</span></div>
+            <div class="field-grid four">
+              <label>Время изготовления, мин<input data-key="productionMinutes" type="number" min="0" step="1" inputmode="numeric" /></label>
+              <label>Стоимость часа, ₽<input data-key="hourlyRate" type="number" min="0" step="1" inputmode="decimal" /></label>
+              <label>Электроэнергия, ₽<input data-key="electricityCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Амортизация, ₽<input data-key="depreciationCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            </div>
+            <div class="inline-result"><span>Стоимость труда</span><strong id="labor-cost">0 ₽</strong><small>Минуты ÷ 60 × ставка</small></div>
+          </article>
+
+          <article class="calc-card loss-card">
+            <div class="card-heading"><div><span class="section-number">08</span><h3>Брак и технологические потери</h3></div></div>
+            <div class="loss-content"><label>Процент потерь / брака<input data-key="lossPercent" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label><p>Применяется ко всем материалам и упаковке. Это помогает заложить реальную стоимость каждой удачной свечи.</p><div class="inline-result"><span>Потери и брак</span><strong id="loss-cost">0 ₽</strong></div></div>
+          </article>
+        </div>
+
+        <aside class="summary-column">
+          <article class="summary-card sticky-card">
+            <div class="summary-heading"><p class="eyebrow">ПОЛНАЯ КАРТИНА</p><h2>Себестоимость</h2></div>
+            <div class="summary-group"><h4>Материалы</h4><dl>
+              <div><dt>Воск</dt><dd id="sum-wax">0 ₽</dd></div><div><dt>Ароматизатор</dt><dd id="sum-fragrance">0 ₽</dd></div><div><dt>Фитиль</dt><dd id="sum-wick">0 ₽</dd></div><div><dt>Банка</dt><dd id="sum-jar">0 ₽</dd></div><div><dt>Крышка</dt><dd id="sum-lid">0 ₽</dd></div><div><dt>Фурнитура</dt><dd id="sum-hardware">0 ₽</dd></div><div><dt>Декор и краситель</dt><dd id="sum-decor">0 ₽</dd></div><div><dt>Этикетка</dt><dd id="sum-label">0 ₽</dd></div><div><dt>Упаковка</dt><dd id="sum-packaging">0 ₽</dd></div><div><dt>Прочие материалы</dt><dd id="sum-other-materials">0 ₽</dd></div>
+            </dl></div>
+            <div class="summary-group"><h4>Производство</h4><dl>
+              <div><dt>Труд</dt><dd id="sum-labor">0 ₽</dd></div><div><dt>Электроэнергия</dt><dd id="sum-electricity">0 ₽</dd></div><div><dt>Амортизация</dt><dd id="sum-depreciation">0 ₽</dd></div>
+            </dl></div>
+            <div class="summary-group"><h4>Потери</h4><dl><div><dt>Брак и тех. потери</dt><dd id="sum-loss">0 ₽</dd></div></dl></div>
+            <div class="grand-total"><span>Себестоимость<br />одной свечи</span><strong id="total-cost">0 ₽</strong></div>
+          </article>
+        </aside>
+      </section>
+
+      <section class="sales-section">
+        <div class="section-heading"><p class="eyebrow">ЦЕНООБРАЗОВАНИЕ</p><h2>Розничная цена и прибыль</h2></div>
+        <div class="sales-grid">
+          <article class="calc-card price-card">
+            <div class="segmented" role="radiogroup" aria-label="Способ расчёта цены">
+              <label><input type="radio" name="pricingMode" value="markup" checked /><span>Наценка</span></label>
+              <label><input type="radio" name="pricingMode" value="margin" /><span>Желаемая маржа</span></label>
+            </div>
+            <div class="mode-explanation" id="pricing-help">Цена = себестоимость × (1 + наценка / 100)</div>
+            <div class="price-input-row">
+              <label id="markup-label">Наценка, %<input data-key="markupPercent" type="number" min="0" max="1000" step="1" inputmode="decimal" /></label>
+              <label id="margin-label" hidden>Желаемая маржа, %<input data-key="targetMargin" type="number" min="0" max="99.9" step="0.1" inputmode="decimal" /></label>
+              <div class="recommended-price"><span>Рекомендуемая цена</span><strong id="recommended-price">0 ₽</strong></div>
+            </div>
+          </article>
+          <article class="calc-card commissions-card">
+            <div class="card-heading"><div><h3>Комиссии и расходы продажи</h3></div><span class="card-note">влияют на чистую прибыль</span></div>
+            <div class="field-grid three">
+              <label>Комиссия маркетплейса, %<input data-key="marketplaceFee" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+              <label>Эквайринг, %<input data-key="acquiringFee" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+              <label>Налог, %<input data-key="taxPercent" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+              <label>Логистика, ₽<input data-key="logisticsCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Реклама, ₽<input data-key="advertisingCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <label>Прочие расходы, ₽<input data-key="otherSalesCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            </div>
+          </article>
+        </div>
+        <article class="profit-bridge" aria-label="Расчёт чистой прибыли">
+          <div><span>Цена продажи</span><strong id="bridge-price">0 ₽</strong></div><i>−</i><div><span>Себестоимость</span><strong id="bridge-cost">0 ₽</strong></div><i>−</i><div><span>Комиссии</span><strong id="bridge-fees">0 ₽</strong></div><i>−</i><div><span>Логистика и реклама</span><strong id="bridge-logistics">0 ₽</strong></div><i>−</i><div><span>Налог и прочее</span><strong id="bridge-tax">0 ₽</strong></div><i>=</i><div class="bridge-profit"><span>Чистая прибыль</span><strong id="bridge-profit">0 ₽</strong></div>
+        </article>
+      </section>
+
+      <section class="analysis-grid">
+        <article class="analysis-card">
+          <div class="card-heading"><div><p class="eyebrow">БЫСТРАЯ ПРОВЕРКА</p><h2>Сценарии цены</h2></div><span class="card-note">после всех расходов</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Цена продажи</th><th>Прибыль</th><th>Маржа</th></tr></thead><tbody id="scenarios-table"></tbody></table></div>
+        </article>
+        <article class="analysis-card whatif-card">
+          <div class="card-heading"><div><p class="eyebrow">МОДЕЛИРОВАНИЕ</p><h2>Что, если…</h2></div><button id="reset-whatif" class="text-button" type="button">Сбросить</button></div>
+          <p class="section-copy">Меняйте ключевые значения без риска для рецепта — результат пересчитывается сразу.</p>
+          <div class="field-grid three whatif-fields">
+            <label>Воск, ₽/кг<input data-whatif="waxPrice" type="number" min="0" step="1" inputmode="decimal" /></label>
+            <label>Банка, ₽<input data-whatif="jarCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <label>Ароматизатор, ₽/кг<input data-whatif="fragrancePrice" type="number" min="0" step="1" inputmode="decimal" /></label>
+            <label>Аромат, %<input data-whatif="fragranceLoad" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+            <label>Комиссия, %<input data-whatif="marketplaceFee" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+            <label>Цена продажи, ₽<input data-whatif="sellingPrice" type="number" min="0" step="1" inputmode="decimal" /></label>
+          </div>
+          <div class="whatif-results"><div><span>Себестоимость</span><strong id="whatif-cost">0 ₽</strong></div><div><span>Прибыль</span><strong id="whatif-profit">0 ₽</strong></div><div><span>Маржа</span><strong id="whatif-margin">0%</strong></div></div>
+        </article>
+      </section>
+
+      <section id="recipes" class="saved-section">
+        <div class="section-heading section-heading-row"><div><p class="eyebrow">ВАША БИБЛИОТЕКА</p><h2>Сохранённые рецепты</h2></div><span id="recipes-count" class="count-pill">0 рецептов</span></div>
+        <div id="recipes-empty" class="empty-state"><span>✦</span><h3>Здесь появятся ваши рецепты</h3><p>Заполните расчёт и сохраните его — все данные останутся на этом устройстве.</p></div>
+        <div id="recipes-list" class="recipes-list"></div>
+        <div id="comparison-panel" class="comparison-panel" hidden>
+          <div class="card-heading"><div><p class="eyebrow">СРАВНЕНИЕ</p><h3>Выбранные свечи</h3></div><span id="comparison-hint" class="card-note">Выберите минимум две</span></div>
+          <div class="table-wrap"><table class="compare-table"><thead id="compare-head"></thead><tbody id="compare-body"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="settings" class="settings-section">
+        <div class="section-heading"><p class="eyebrow">БАЗОВЫЕ ЗНАЧЕНИЯ</p><h2>Настройки по умолчанию</h2><p class="section-copy">Используются, когда вы создаёте новый расчёт. Сохранённые рецепты не изменяются.</p></div>
+        <article class="calc-card settings-card"><div class="field-grid six">
+          <label>Стоимость часа, ₽<input data-setting="hourlyRate" type="number" min="0" step="1" inputmode="decimal" /></label>
+          <label>Брак, %<input data-setting="lossPercent" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+          <label>Налог, %<input data-setting="taxPercent" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+          <label>Комиссия, %<input data-setting="marketplaceFee" type="number" min="0" max="100" step="0.1" inputmode="decimal" /></label>
+          <label>Электроэнергия, ₽<input data-setting="electricityCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+          <label>Упаковка, ₽<input data-setting="packagingCost" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+        </div><div class="settings-actions"><span id="settings-status" aria-live="polite"></span><button id="save-settings" class="button button-primary" type="button">Сохранить настройки</button></div></article>
+      </section>
+    </main>
+
+    <footer><span>Пряная гармония · Candle Cost Calculator</span><span>Данные хранятся только в вашем браузере</span></footer>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
