@@ -21,7 +21,9 @@
       </a>
       <nav aria-label="Навигация">
         <a href="#calculator">Калькулятор</a>
+        <a href="#templates">Шаблоны</a>
         <a href="#recipes">Рецепты</a>
+        <a href="#planner">План выпуска</a>
         <a href="#settings">Настройки</a>
       </nav>
       <div class="header-actions">
@@ -68,6 +70,11 @@
       </section>
 
       <div id="validation-message" class="validation-message" role="status" hidden></div>
+
+      <section id="templates" class="templates-section">
+        <div class="section-heading section-heading-row"><div><p class="eyebrow">БЫСТРЫЙ СТАРТ</p><h2>Шаблоны рецептов</h2><p class="section-copy">Выберите основу — цены материалов и расходы продажи останутся вашими.</p></div><button id="save-template" class="button button-quiet" type="button">Сохранить как шаблон</button></div>
+        <div id="templates-list" class="templates-list"></div>
+      </section>
 
       <section id="calculator" class="calculator-layout">
         <div class="form-column">
@@ -235,6 +242,35 @@
           <div class="card-heading"><div><p class="eyebrow">СРАВНЕНИЕ</p><h3>Выбранные свечи</h3></div><span id="comparison-hint" class="card-note">Выберите минимум две</span></div>
           <div class="table-wrap"><table class="compare-table"><thead id="compare-head"></thead><tbody id="compare-body"></tbody></table></div>
         </div>
+      </section>
+
+      <section id="planner" class="planner-section">
+        <div class="section-heading"><p class="eyebrow">ПЛАНИРОВАНИЕ</p><h2>Планировщик выпуска</h2><p class="section-copy">Укажите остатки только тех материалов, которые хотите контролировать. Пустые поля не ограничивают выпуск.</p></div>
+        <div class="planner-layout">
+          <article class="calc-card planner-controls">
+            <div class="card-heading"><div><h3>Партия свечей</h3></div><span class="card-note">расчёт в реальном времени</span></div>
+            <div class="field-grid two">
+              <label>Рецепт для производства<select id="planner-recipe" aria-label="Рецепт для производства"></select></label>
+              <label>Запланировано свечей<input id="planner-quantity" type="number" min="1" step="1" inputmode="numeric" value="10" /></label>
+            </div>
+            <div class="planner-kpis"><div><span>Себестоимость партии</span><strong id="planner-cost">0 ₽</strong></div><div><span>Выручка</span><strong id="planner-revenue">0 ₽</strong></div><div><span>Ожидаемая прибыль</span><strong id="planner-profit">0 ₽</strong></div></div>
+          </article>
+          <article class="calc-card inventory-card">
+            <div class="card-heading"><div><h3>Остатки материалов</h3></div><button id="save-inventory" class="text-button" type="button">Сохранить остатки</button></div>
+            <div class="field-grid three">
+              <label>Воск, г<input data-stock="wax" type="number" min="0" step="1" inputmode="decimal" placeholder="Не учитывать" /></label>
+              <label>Ароматизатор, г<input data-stock="fragrance" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Не учитывать" /></label>
+              <label>Фитили, шт.<input data-stock="wick" type="number" min="0" step="1" inputmode="numeric" placeholder="Не учитывать" /></label>
+              <label>Банки, шт.<input data-stock="jar" type="number" min="0" step="1" inputmode="numeric" placeholder="Не учитывать" /></label>
+              <label>Крышки, шт.<input data-stock="lid" type="number" min="0" step="1" inputmode="numeric" placeholder="Не учитывать" /></label>
+              <label>Коробки, шт.<input data-stock="box" type="number" min="0" step="1" inputmode="numeric" placeholder="Не учитывать" /></label>
+            </div>
+          </article>
+        </div>
+        <article class="planner-results">
+          <div class="planner-result-heading"><div><span>Можно изготовить сейчас</span><strong id="planner-maximum">—</strong></div><p id="planner-note">Укажите остатки материалов, чтобы рассчитать доступный выпуск.</p></div>
+          <div class="table-wrap"><table><thead><tr><th>Материал</th><th>Остаток</th><th>На свечу</th><th>На план</th><th>Статус</th></tr></thead><tbody id="planner-table"></tbody></table></div>
+        </article>
       </section>
 
       <section id="settings" class="settings-section">
