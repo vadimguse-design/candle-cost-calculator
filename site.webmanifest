@@ -1,6 +1,6 @@
 {
-  "name": "Пряная гармония — калькулятор свечей",
-  "short_name": "Пряная гармония",
+  "name": "Candle Cost Calculator",
+  "short_name": "Candle Cost",
   "description": "Калькулятор себестоимости, цены и прибыли для свечей ручной работы.",
   "lang": "ru",
   "start_url": "./",
